@@ -7,30 +7,72 @@ import {
   BarChart3, 
   Calendar,
   ChevronRight,
-  Plus
+  Plus,
+  X,
+  Loader2
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await api.get('/dashboard');
-        if (response.data.success) {
-          setStats(response.data.data);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [taskData, setTaskData] = useState({
+    title: '',
+    description: '',
+    project: '',
+    dueDate: '',
+    priority: 'medium'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
     fetchDashboardData();
+    fetchProjects();
   }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const response = await api.get('/dashboard');
+      if (response.data.success) {
+        setStats(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get('/projects');
+      if (response.data.success) {
+        setProjects(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const response = await api.post('/tasks', taskData);
+      if (response.data.success) {
+        setIsTaskModalOpen(false);
+        setTaskData({ title: '', description: '', project: '', dueDate: '', priority: 'medium' });
+        fetchDashboardData(); // Refresh stats
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create task');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -57,11 +99,97 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-brand-dark">Dashboard Overview</h1>
           <p className="text-brand-muted mt-1 font-medium">Welcome back! Here's what's happening today.</p>
         </div>
-        <button className="flex items-center justify-center gap-2 px-5 py-3 bg-brand-dark text-white rounded-xl font-bold shadow-lg shadow-brand-dark/20 hover:bg-brand-muted transition-all transform active:scale-95">
+        <button 
+          onClick={() => setIsTaskModalOpen(true)}
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-brand-dark text-white rounded-xl font-bold shadow-lg shadow-brand-dark/20 hover:bg-brand-muted transition-all transform active:scale-95"
+        >
           <Plus size={20} />
           <span>New Task</span>
         </button>
       </div>
+
+      {/* New Task Modal */}
+      <AnimatePresence>
+        {isTaskModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-brand-dark/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-brand-dark">Create New Task</h2>
+                <button onClick={() => setIsTaskModalOpen(false)} className="p-2 hover:bg-brand-muted/10 rounded-xl transition-all">
+                  <X size={20} className="text-brand-muted" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTask} className="space-y-5">
+                {error && <div className="p-4 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-100">{error}</div>}
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Task Title</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium"
+                    placeholder="Enter task name"
+                    value={taskData.title}
+                    onChange={(e) => setTaskData({ ...taskData, title: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Project</label>
+                  <select
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium bg-white"
+                    value={taskData.project}
+                    onChange={(e) => setTaskData({ ...taskData, project: e.target.value })}
+                  >
+                    <option value="">Select a project</option>
+                    {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Due Date</label>
+                    <input
+                      required
+                      type="date"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium"
+                      value={taskData.dueDate}
+                      onChange={(e) => setTaskData({ ...taskData, dueDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Priority</label>
+                    <select
+                      className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium bg-white"
+                      value={taskData.priority}
+                      onChange={(e) => setTaskData({ ...taskData, priority: e.target.value })}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  disabled={isSubmitting}
+                  type="submit"
+                  className="w-full py-4 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/30 hover:bg-brand-dark transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <span>Create Task</span>}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -10,14 +10,20 @@ import {
   UserPlus,
   Trash2,
   Search,
-  MessageSquare
+  MessageSquare,
+  X,
+  Loader2
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Teams = () => {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [teamData, setTeamData] = useState({ name: '', description: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -34,6 +40,24 @@ const Teams = () => {
       console.error('Error fetching teams:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateTeam = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const response = await api.post('/teams', teamData);
+      if (response.data.success) {
+        setIsModalOpen(false);
+        setTeamData({ name: '', description: '' });
+        fetchTeams();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create team');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -57,12 +81,71 @@ const Teams = () => {
           <p className="text-brand-muted mt-1 font-medium">Connect and collaborate with your project teams.</p>
         </div>
         {user?.role === 'admin' && (
-          <button className="flex items-center justify-center gap-2 px-5 py-3 bg-brand-dark text-white rounded-xl font-bold shadow-lg hover:bg-brand-muted transition-all transform active:scale-95">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-brand-dark text-white rounded-xl font-bold shadow-lg hover:bg-brand-muted transition-all transform active:scale-95"
+          >
             <Plus size={20} />
             <span>Create Team</span>
           </button>
         )}
       </div>
+
+      {/* Create Team Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-brand-dark/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-brand-dark">Create New Team</h2>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-brand-muted/10 rounded-xl transition-all">
+                  <X size={20} className="text-brand-muted" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTeam} className="space-y-5">
+                {error && <div className="p-4 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-100">{error}</div>}
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Team Name</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium"
+                    placeholder="Enter team name"
+                    value={teamData.name}
+                    onChange={(e) => setTeamData({ ...teamData, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Description</label>
+                  <textarea
+                    rows="3"
+                    className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium resize-none"
+                    placeholder="What is this team for?"
+                    value={teamData.description}
+                    onChange={(e) => setTeamData({ ...teamData, description: e.target.value })}
+                  />
+                </div>
+
+                <button
+                  disabled={isSubmitting}
+                  type="submit"
+                  className="w-full py-4 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/30 hover:bg-brand-dark transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <span>Create Team</span>}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Teams List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
