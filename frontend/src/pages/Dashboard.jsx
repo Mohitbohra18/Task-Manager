@@ -28,6 +28,7 @@ const Dashboard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
     fetchDashboardData();
     fetchProjects();
   }, []);
