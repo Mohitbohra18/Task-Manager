@@ -31,3 +31,11 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+
+node_modules/
+.env
+dist/
+*.log
+package-lock.json
+package.json
