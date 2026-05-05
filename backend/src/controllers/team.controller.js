@@ -56,18 +56,40 @@ const deleteTeam = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+const User = require('../models/User');
+
 const addMember = async (req, res, next) => {
   try {
-    const { userId, role = 'member' } = req.body;
+    const { userId, email, role = 'member' } = req.body;
+    let targetUserId = userId;
+
+    // If email is provided, look up the user
+    if (email) {
+      const user = await User.findOne({ email });
+      if (!user) return next(ApiError.notFound('User not found with this email'));
+      targetUserId = user._id;
+    }
+
+    if (!targetUserId) return next(ApiError.badRequest('User ID or Email is required'));
+
     const team = await Team.findById(req.params.id);
     if (!team) return next(ApiError.notFound('Team not found'));
-    if (req.user.role !== 'admin' && team.owner.toString() !== req.user.id) return next(ApiError.forbidden('Not authorized'));
-    const existing = team.members.find(m => m.user.toString() === userId);
+    
+    if (req.user.role !== 'admin' && team.owner.toString() !== req.user.id) {
+      return next(ApiError.forbidden('Not authorized'));
+    }
+
+    const existing = team.members.find(m => m.user.toString() === targetUserId.toString());
     if (existing) return next(ApiError.badRequest('User is already a team member'));
-    team.members.push({ user: userId, role });
+
+    team.members.push({ user: targetUserId, role });
     await team.save();
-    const populated = await Team.findById(team._id).populate('owner', 'name email').populate('members.user', 'name email');
-    return ApiResponse.success(res, { team: populated }, 'Member added');
+
+    const populated = await Team.findById(team._id)
+      .populate('owner', 'name email')
+      .populate('members.user', 'name email');
+      
+    return ApiResponse.success(res, { team: populated }, 'Member added successfully');
   } catch (error) { next(error); }
 };
 

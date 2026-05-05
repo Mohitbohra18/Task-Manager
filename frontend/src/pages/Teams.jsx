@@ -21,7 +21,10 @@ const Teams = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [teamData, setTeamData] = useState({ name: '', description: '' });
+  const [inviteData, setInviteData] = useState({ email: '', role: 'member' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const { user } = useAuth();
@@ -59,6 +62,30 @@ const Teams = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleInviteMember = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const response = await api.post(`/teams/${selectedTeam._id}/members`, inviteData);
+      if (response.data.success) {
+        setIsInviteModalOpen(false);
+        setInviteData({ email: '', role: 'member' });
+        fetchTeams();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to invite member');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openInviteModal = (team) => {
+    setSelectedTeam(team);
+    setIsInviteModalOpen(true);
+    setError('');
   };
 
   const filteredTeams = teams.filter(t => 
@@ -207,7 +234,10 @@ const Teams = () => {
 
             {user?.role === 'admin' && (
               <div className="p-4 bg-brand-muted/5 border-t border-brand-muted/10 flex justify-end">
-                <button className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:text-brand-dark transition-all">
+                <button 
+                  onClick={() => openInviteModal(team)}
+                  className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:text-brand-dark transition-all"
+                >
                   <UserPlus size={16} />
                   <span>Invite Member</span>
                 </button>
@@ -215,6 +245,69 @@ const Teams = () => {
             )}
           </motion.div>
         ))}
+
+        {/* Invite Member Modal */}
+        <AnimatePresence>
+          {isInviteModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-brand-dark/40 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl overflow-hidden"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-brand-dark">Invite Member</h2>
+                    <p className="text-xs text-brand-muted font-bold uppercase tracking-wider mt-1">To {selectedTeam?.name}</p>
+                  </div>
+                  <button onClick={() => setIsInviteModalOpen(false)} className="p-2 hover:bg-brand-muted/10 rounded-xl transition-all">
+                    <X size={20} className="text-brand-muted" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleInviteMember} className="space-y-5">
+                  {error && <div className="p-4 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-100">{error}</div>}
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Member Email</label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-muted group-focus-within:text-brand-primary transition-colors" size={18} />
+                      <input
+                        required
+                        type="email"
+                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium"
+                        placeholder="user@example.com"
+                        value={inviteData.email}
+                        onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-brand-muted uppercase tracking-widest px-1">Role</label>
+                    <select
+                      className="w-full px-4 py-3 rounded-xl border border-brand-muted/20 focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all font-medium bg-white"
+                      value={inviteData.role}
+                      onChange={(e) => setInviteData({ ...inviteData, role: e.target.value })}
+                    >
+                      <option value="member">Member</option>
+                      <option value="lead">Lead</option>
+                    </select>
+                  </div>
+
+                  <button
+                    disabled={isSubmitting}
+                    type="submit"
+                    className="w-full py-4 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/30 hover:bg-brand-dark transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <span>Send Invite</span>}
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {filteredTeams.length === 0 && (
           <div className="lg:col-span-2 text-center py-20 glass-card rounded-2xl border-dashed border-2 border-brand-muted/20">
