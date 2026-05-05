@@ -150,7 +150,9 @@ const Dashboard = () => {
                     onChange={(e) => setTaskData({ ...taskData, project: e.target.value })}
                   >
                     <option value="">Select a project</option>
-                    {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                    {Array.isArray(projects) && projects.map(p => (
+                      <option key={p._id} value={p._id}>{p.name}</option>
+                    ))}
                   </select>
                 </div>
 
